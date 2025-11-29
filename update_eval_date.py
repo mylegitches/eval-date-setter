@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import subprocess
+import argparse
 from datetime import date
 
 # -------------------------------------------------------
@@ -81,13 +82,43 @@ def set_env(name: str, value: str):
 
 
 def main():
-    args = sys.argv[1:]
+    parser = argparse.ArgumentParser(
+        description="Evaluation Date Setter - Manages evaluation_date environment variable",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Daily lookup (default mode)
+  python update_eval_date.py
+
+  # Update date map from JSON file
+  python update_eval_date.py --update-date-map last_working_day.json
+
+  # Manual date override
+  python update_eval_date.py --date 20251126
+        """
+    )
+
+    group = parser.add_mutually_exclusive_group()
+
+    group.add_argument(
+        "--update-date-map",
+        metavar="JSON_FILE",
+        help="Update the date_map environment variable from a JSON file"
+    )
+
+    group.add_argument(
+        "--date",
+        metavar="YYYYMMDD",
+        help="Manually set the evaluation_date environment variable to a specific date"
+    )
+
+    args = parser.parse_args()
 
     # --------------------------------------------
     # MODE 1: Update the date_map env var
     # --------------------------------------------
-    if len(args) == 2 and args[0] == "--update-date-map":
-        new_json = args[1]
+    if args.update_date_map:
+        new_json = args.update_date_map
 
         print(f"[INFO] Loading new date map from: {new_json}")
         mapping = load_json_as_dict(new_json)
@@ -103,8 +134,8 @@ def main():
     # --------------------------------------------
     # MODE 2: Manual override
     # --------------------------------------------
-    if len(args) == 2 and args[0] == "--date":
-        override = args[1]
+    if args.date:
+        override = args.date
 
         if len(override) != 8 or not override.isdigit():
             print("[ERROR] --date must be YYYYMMDD")
@@ -116,11 +147,12 @@ def main():
         return
 
     # --------------------------------------------
-    # MODE 3: Standard daily lookup
+    # MODE 3: Standard daily lookup (default)
     # --------------------------------------------
     raw_map = os.environ.get("date_map")
     if not raw_map:
         print("[ERROR] Env var 'date_map' is not set.")
+        print("[HELP] Use --update-date-map to set it from a JSON file.")
         sys.exit(1)
 
     mapping = parse_map_string(raw_map)
@@ -129,6 +161,7 @@ def main():
 
     if today not in mapping:
         print(f"[ERROR] No mapping for today's date: {today}")
+        print("[HELP] Update the date_map with today's date or check the JSON file.")
         sys.exit(3)
 
     final_value = mapping[today]
